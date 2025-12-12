@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-EXTS = ("*.jpg",)
+EXTS = ("*.jpg", "*.bmp")
 KERNEL_SIZES = 3
 
 
