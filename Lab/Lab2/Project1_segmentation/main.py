@@ -41,7 +41,7 @@ def cvrt2uint8(img):
     )
 
 
-def seg_Otsu(
+def seg_otsu(
     path, blur_ksize, clip_limit, tile_grid_size, morph_ksize, morph_iterations
 ):
     img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
@@ -59,14 +59,14 @@ def seg_Otsu(
                 cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR),
                 cv2.COLOR_BGR2GRAY,
             )
-        _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        _, otsu_mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         kernel = np.ones(morph_ksize, np.uint8)
-        mask = cv2.morphologyEx(
-            mask, cv2.MORPH_OPEN, kernel, iterations=morph_iterations
+        otsu_mask = cv2.morphologyEx(
+            otsu_mask, cv2.MORPH_OPEN, kernel, iterations=morph_iterations
         )
-        mask = cv2.dilate(mask, kernel, iterations=morph_iterations)
-        seg_result = cv2.bitwise_and(img, img, mask=mask)
-        return seg_result, mask
+        otsu_mask = cv2.dilate(otsu_mask, kernel, iterations=morph_iterations)
+        seg_result = cv2.bitwise_and(img, img, mask=otsu_mask)
+        return seg_result, otsu_mask
     return None, None
 
 
@@ -92,7 +92,8 @@ if __name__ == "__main__":
         files.extend(sorted(inp.glob(e)))
     if files:
         for f in files:
-            res, mask = seg_Otsu(
+            name, ext = f.stem, f.suffix
+            res, mask = seg_otsu(
                 f,
                 BLUR_KERNEL_SIZES,
                 CLIP_LIMIT,
@@ -100,19 +101,18 @@ if __name__ == "__main__":
                 MORPH_KERNEL_SIZES,
                 MORPH_ITERATIONS,
             )
-            name, ext = f.stem, f.suffix
             if res is None:
-                print("Otsu failed to process", f)
+                print(f"Otsu failed to process {f}")
             else:
                 cv2.imwrite(str(out / f"{name}_otsu_segmented{ext}"), res)
                 cv2.imwrite(str(out / f"{name}_otsu_mask{ext}"), mask)
             res, mask = seg_sam(f, PREDICTOR)
             if res is None:
-                print("SAM failed to process", f)
+                print(f"SAM failed to process {f}")
             else:
                 Path(out / "sam").mkdir(exist_ok=True)
                 for i, (r, m) in enumerate(zip(res, mask)):
                     cv2.imwrite(str(out / "sam" / f"{name}_segmented_{i}{ext}"), r)
                     cv2.imwrite(str(out / "sam" / f"{name}_mask_{i}{ext}"), m)
     else:
-        print("No image files found in", inp)
+        print(f"No image files found in {inp.resolve()}")
